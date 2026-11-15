@@ -31,3 +31,12 @@ Opening index.html by double-click may block JavaScript modules or snapshot load
 jszip.min.js is JSZip; its bundled copyright/license notice is preserved.
 
 GitHub documentation: https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site
+
+## Visual dashboard update
+Leading and trailing divisions and sections are shown with tie counts. Ranked horizontal bars compare current and previous division percentages; the donut summarises section completion.
+
+### Compare reports
+Upload the latest ZIP with Upload ZIP, then select Upload previous ZIP to load the desired earlier report. Subsequent current ZIP uploads automatically retain the preceding report as the baseline. No historical improvement is fabricated when no baseline exists. Changes are percentage points, computed only on matching division/subdivision/section names; scope additions and removals are shown separately. Renamed sections will appear as added/removed. Baselines and results stay in the same browser. Export comparison downloads a division CSV.
+
+### Update an existing GitHub repository
+Extract this archive and replace the existing files at the repository root, including the new insights.js. Keep index.html at root. Commit/push; retain your existing Pages main/root settings. No build step is required.

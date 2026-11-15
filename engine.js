@@ -1,13 +1,13 @@
-/* Road and stretch-aware scoring, revision 3. */
+/* Road and stretch-aware scoring, revision 4. */
 export const labels=['Listed roads','Segmented roads','New roads','Maintenance history','General road data'];
 export const filled=v=>v!==null&&v!==undefined&&!['','-','--','n/a','na','nil','none','not applicable'].includes(String(v).trim().toLowerCase());
 export function scoreSheet(name,rows,base,kind){
- const rr=rows.filter(r=>r.number>(kind<3?2:1)&&Object.entries(r.cells).some(([c,v])=>c!=='A'&&filled(v)));
+ const rr=rows.filter(r=>r.number>(kind<3?2:1)&&Object.entries(r.cells).some(([c,v])=>!(kind===1?['A','K','W','X','Y']:kind<3?['A','T','U']:kind===3?['A','N']:['A','J']).includes(c)&&filled(v)));
  let required=0,count=0;
  for(const {cells:r} of rr){let cols;
   const yes=c=>String(r[c]??'').trim().toLowerCase()==='yes';
-  if(kind===0||kind===2){cols=(kind===0?'DEFHIJKLMNOPR':'EFHIJKLMNOPR').split('');if(String(r.F??'').trim().toUpperCase()==='SH')cols.push('G');if(yes('P'))cols.push('Q');if(yes('R'))cols.push('S','T');}
-  else if(kind===1){cols='BDEFHIJLMNOPQRSU'.split('');if(String(r.F??'').trim().toUpperCase()==='SH')cols.push('G');if(String(r.J??'').toLowerCase().includes('other'))cols.push('K');if(yes('S'))cols.push('T');if(yes('U'))cols.push('V','W');}
+  if(kind===0||kind===2){cols=(kind===0?'DEFHIJKLMNOPR':'EFHIJKLMNOPR').split('');if(String(r.F??'').trim().toUpperCase()==='SH')cols.push('G');if(yes('P'))cols.push('Q');if(yes('R'))cols.push('S');}
+  else if(kind===1){cols='BDEFHIJLMNOPQRSU'.split('');if(String(r.F??'').trim().toUpperCase()==='SH')cols.push('G');if(yes('S'))cols.push('T');if(yes('U'))cols.push('V');}
   else cols=(kind===3?'BCDEFGHIJKLM':'BCDEFGHI').split('');
   required+=cols.length;count+=cols.filter(c=>filled(r[c])).length;
  }

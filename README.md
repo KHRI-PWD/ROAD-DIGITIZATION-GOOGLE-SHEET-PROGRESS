@@ -40,3 +40,7 @@ Upload the latest ZIP with Upload ZIP, then select Upload previous ZIP to load t
 
 ### Update an existing GitHub repository
 Extract this archive and replace the existing files at the repository root, including the new insights.js. Keep index.html at root. Commit/push; retain your existing Pages main/root settings. No build step is required.
+
+## Conditional fields update
+Remarks, Adjacent PWD Sections in Other Districts, and If Other in J Column, Explain are excluded. Listed roads: Q only when P=Yes; S only when R=Yes; T and U excluded. Segmented roads: T only when S=Yes; V only when U=Yes; K and W and remarks excluded. A No response is counted as filled, and its dependent follow-up fields are excluded. Independent neighbouring questions remain required.
+Old locally saved scores/baselines are not reused across this scoring revision. Re-upload latest and previous ZIPs to compare under the same rules.

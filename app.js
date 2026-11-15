@@ -1,7 +1,7 @@
 import {summarize} from './insights.js';
 import {labels,analyzeZip,normalize,progress,sectionProgress} from './engine.js';
 const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),pct=v=>(v*100).toFixed(1)+'%';
-let previous=null,data=null,original=null,selected=null,busy=false;const KEY='khri-road-progress-v3';
+let previous=null,data=null,original=null,selected=null,busy=false;const KEY='khri-road-progress-v4';
 function persist(){try{localStorage.setItem(KEY,JSON.stringify({data,original,previous}));}catch{$('notice').hidden=false;$('notice').textContent='Results are available now, but this browser could not save them. Export your report before closing.';}}
 const status=s=>s.error||s.tabs.some(t=>t.kind!==2&&t.missing)?'review':sectionProgress(s)===1?'done':sectionProgress(s)===0?'none':'progress';
 const statusName={review:'Needs review',done:'Filled · review due',none:'Not started',progress:'In progress'};

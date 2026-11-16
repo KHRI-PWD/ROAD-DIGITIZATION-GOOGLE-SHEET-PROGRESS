@@ -1,46 +1,22 @@
-# KHRI Road Network Progress Dashboard
+# Shared Road Digitization Progress Dashboard
 
-## Publish on GitHub Pages
-1. Extract this ZIP on your computer.
-2. Open your GitHub repository and choose Add file > Upload files, or copy the extracted files into your GitHub Desktop repository.
-3. Upload the extracted contents, not the ZIP. index.html must be at the repository root alongside app.js, engine.js, style.css, jszip.min.js and snapshot.json.
-4. Commit the files to main (and Push origin if using GitHub Desktop).
-5. Open Settings > Pages. Select Deploy from a branch, main, / (root), then Save.
-6. Open the published link shown in Pages settings when deployment completes.
+## Install this update
+Replace the files at the root of KHRI-PWD/ROAD-DIGITIZATION-GOOGLE-SHEET-PROGRESS, including shared-report.js. Commit to main. Keep the existing GitHub Pages configuration. This update has not itself been deployed by the ZIP download.
 
-No build command, Node installation, API key or server is required. All asset paths are relative, so repository subpath hosting works.
+## Everyday publishing
+1. Open the dashboard after GitHub Pages deploys this update.
+2. Upload the latest ZIP. This is an unpublished preview.
+3. If needed, upload the earlier ZIP for comparison.
+4. Click Publish for everyone. Review the section count/source.
+5. Enter a fine-grained GitHub personal access token limited to this repository, with Contents: Read and write. Create it in your own GitHub settings, never in chat. Organisation approval may be required; branch protection may prevent direct main commits.
+6. Click Publish report to GitHub. Wait for GitHub Pages deployment. The app distinguishes saved-to-GitHub from confirmed-live.
 
-## Use
-Open the hosted page and click Upload ZIP. ZIP structure: optional parent folder > division folders > optional subdivision folders > section .xlsx files. All processing happens in your browser. Uploaded results and adjustments stay in that browser; uploading a ZIP does not update the dashboard for other visitors.
+The token is not placed in files, URLs or browser storage. It is sent only to api.github.com and cleared from the input immediately. Do not commit tokens. Publishing is enforced by GitHub repository permissions; merely seeing the button does not grant access.
 
-The included snapshot.json contains the provided 12 November 2026 aggregate progress snapshot. It will be available to visitors alongside the website assets. The original Excel workbooks, ZIP and raw contact details are not bundled. This export has no ChatGPT login/access restriction.
+All visitors fetch snapshot.json on page load and check again every minute while the page is visible. Existing local drafts no longer override the published report. Drafts are recoverable with Restore local draft. Uploading/preparing a draft pauses shared refresh so work is not overwritten. Load published report exits the draft.
 
-## Current counting rules
-- Listed: Single Stretch Yes or blank; No is assigned to segmented roads.
-- Segmented: parent roads marked No; unique Stretch No. entries and Total Stretches determine coverage. Missing stretches remain pending.
-- New roads: displayed but excluded from completion totals.
-- General data: unique parent road names, including undecided listed roads, with eight fields per road.
-- Maintenance: same unique-road target and name matching as General Data, using column C for road name and 12 fields per road.
-- Duplicate road entries do not increase General/Maintenance credit. Unmatched names are reported.
-- Section totals average applicable sheets; division and overall totals average sections.
+Only calculated reports and comparison data are committed, not the uploaded Excel ZIP. Published report data and repository history are public. The included snapshot is the existing report from your repository; your newer browser-only ZIP has not been supplied here.
 
-## Local preview (optional)
-Opening index.html by double-click may block JavaScript modules or snapshot loading. From the extracted folder run `python -m http.server 8000` and open http://localhost:8000 instead.
+Current calculation rules, rankings and charts are preserved. Publishing stores one current and one previous report without recursively nesting historical reports.
 
-## Dependency
-jszip.min.js is JSZip; its bundled copyright/license notice is preserved.
-
-GitHub documentation: https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site
-
-## Visual dashboard update
-Leading and trailing divisions and sections are shown with tie counts. Ranked horizontal bars compare current and previous division percentages; the donut summarises section completion.
-
-### Compare reports
-Upload the latest ZIP with Upload ZIP, then select Upload previous ZIP to load the desired earlier report. Subsequent current ZIP uploads automatically retain the preceding report as the baseline. No historical improvement is fabricated when no baseline exists. Changes are percentage points, computed only on matching division/subdivision/section names; scope additions and removals are shown separately. Renamed sections will appear as added/removed. Baselines and results stay in the same browser. Export comparison downloads a division CSV.
-
-### Update an existing GitHub repository
-Extract this archive and replace the existing files at the repository root, including the new insights.js. Keep index.html at root. Commit/push; retain your existing Pages main/root settings. No build step is required.
-
-## Conditional fields update
-Remarks, Adjacent PWD Sections in Other Districts, and If Other in J Column, Explain are excluded. Listed roads: Q only when P=Yes; S only when R=Yes; T and U excluded. Segmented roads: T only when S=Yes; V only when U=Yes; K and W and remarks excluded. A No response is counted as filled, and its dependent follow-up fields are excluded. Independent neighbouring questions remain required.
-Old locally saved scores/baselines are not reused across this scoring revision. Re-upload latest and previous ZIPs to compare under the same rules.
+API reference: https://docs.github.com/en/rest/repos/contents#create-or-update-file-contents

@@ -84,6 +84,14 @@ async function readWorkbook(bytes){
   sheets.push({name,rows});
  }return sheets;
 }
+export function viewableEntries(raw){
+ return raw.map(t=>{const headerNumber=/^[123]\s/.test(t.name.trim())?2:1;
+ const header=t.rows.find(r=>r.number===headerNumber)?.cells||{};
+ const columns=Object.keys(header).filter(c=>filled(header[c])&&!/contact|phone|mobile|email/i.test(String(header[c]))).map(key=>({key,label:String(header[key])}));
+ const rows=t.rows.filter(r=>r.number>headerNumber&&columns.some(c=>c.key!=='A'&&filled(r.cells[c.key]))).map(r=>({number:r.number,cells:Object.fromEntries(columns.map(c=>[c.key,r.cells[c.key]??'']))}));
+ return {name:t.name,columns,rows};
+ });
+}
 export async function analyzeZip(file,onProgress=()=>{}){
  if(file.size>150*1024*1024)throw Error('Please use a ZIP smaller than 150 MB.');
  const zip=await JSZip.loadAsync(await file.arrayBuffer());let total=0;for(const f of Object.values(zip.files)){total+=f._data?.uncompressedSize||0;}if(total>750*1024*1024)throw Error('ZIP expands beyond the 750 MB limit.');
@@ -96,7 +104,7 @@ export async function analyzeZip(file,onProgress=()=>{}){
   const s={division:parts[0],subdivision:parts.length>2?parts.slice(1,-1).join(' / '):'Not supplied',section:parts.at(-1).replace(/\.xlsx$/i,''),path:file.name,base:0,tabs:[]};
   try{if((file._data?.uncompressedSize||0)>30*1024*1024)throw Error('Workbook exceeds 30 MB');
    const raw=await readWorkbook(await file.async('uint8array'));
-   Object.assign(s,scoreWorkbook(raw));
+   Object.assign(s,scoreWorkbook(raw));s.entries=viewableEntries(raw);
    const seen=new Set(s.tabs.map(t=>t.kind));
    if(seen.size<5)warnings.push(s.section+': missing '+labels.filter((_,k)=>!seen.has(k)).join(', '));
    for(const t of s.tabs){if(t.unmatched)warnings.push(s.section+': '+t.unmatched+' unmatched '+labels[t.kind]+' rows excluded; check road names.');if(t.unknown)warnings.push(s.section+': '+t.unknown+' segmented roads have no total stretch count; minimum one pending stretch used.');}

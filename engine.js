@@ -46,7 +46,12 @@ export function scoreWorkbook(raw){
  const seg=by.get(1),segRows=segmentedRows(active(seg?.rows||[],2)),used=new Set();let required=0,done=0,stretchTarget=0,stretchRows=0,unknown=0;
  for(const road of split){
   const aliases=[road.cells.B,road.cells.E].filter(filled).map(key);
-  const matches=segRows.filter(r=>aliases.includes(key(r.cells.B))||aliases.includes(key(r.cells.E)));
+  const asset=key(road.cells.D),uniqueAsset=filled(road.cells.D)&&listed.filter(r=>key(r.cells.D)===asset).length===1;
+  const matches=segRows.filter(r=>{
+   // A unique PRICE asset identifies the parent even when stretch names differ.
+   if(uniqueAsset&&filled(r.cells.D))return key(r.cells.D)===asset;
+   return aliases.includes(key(r.cells.B))||aliases.includes(key(r.cells.E));
+  });
   matches.forEach(r=>used.add(r));
   const declared=Math.max(0,...matches.map(r=>Number(r.cells.H)||0));
   const distinct=new Map();for(const r of matches){const n=Number(r.cells.I);if(Number.isInteger(n)&&n>0&&!distinct.has(n))distinct.set(n,r);}

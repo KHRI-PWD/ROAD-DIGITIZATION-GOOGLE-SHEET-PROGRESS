@@ -18,21 +18,25 @@ export function scoreSheet(name,rows,base,kind){
 export function progress(t){if(!t||t.missing)return 0;if(t.notApplicable)return 1;if(t.nil&&t.rows===0&&[1,2].includes(t.kind))return 1;return t.required>0?Math.min(1,Math.max(0,t.filled/t.required)):0;}
 export const sectionProgress=s=>{const tabs=s.tabs.filter(t=>t.kind!==2&&!t.notApplicable);return tabs.length?tabs.reduce((a,t)=>a+progress(t),0)/tabs.length:0;};
 const key=v=>String(v??'').trim().toLowerCase().replace(/\s+/g,' ');
+const roadKey=v=>key(v).replace(/[-–—.,/()]+/g,' ').replace(/\s+/g,' ').trim();
+const serial=v=>filled(v)&&Number.isFinite(Number(v))?String(Number(v)):key(v);
 const active=(rows,header)=>rows.filter(r=>r.number>header&&Object.entries(r.cells).some(([c,v])=>c!=='A'&&filled(v)));
 // Carry only shared road metadata inside an explicitly bounded stretch group.
 export function segmentedRows(rows){
- let shared=null,previous=0;
+ let shared=null,previous=0,parentSerial='';
  return rows.map(row=>{
-  const r={...row.cells},n=Number(r.I);
-  const starts=filled(r.A)||filled(r.B)||n===1;
-  if(starts){shared={};previous=0;}
-  const continuation=shared&&row.number===previous+1&&!starts;
-  if(continuation)for(const c of 'BCDEFGH')if(!filled(r[c])&&filled(shared[c]))r[c]=shared[c];
-  if(starts||continuation){for(const c of 'BCDEFGH')if(filled(r[c]))shared[c]=r[c];previous=row.number;}
-  else shared=null;
-  return {...row,cells:r};
+  const r={...row.cells};
+  const changedName=filled(r.B)&&shared&&roadKey(r.B)!==roadKey(shared.B);
+  const changedAsset=filled(r.D)&&shared&&filled(shared.D)&&key(r.D)!==key(shared.D);
+  const starts=filled(r.A)||!shared||changedName||changedAsset||row.number!==previous+1;
+  if(starts){shared={};parentSerial=serial(r.A);}
+  else for(const c of 'BCDEFGH')if(!filled(r[c])&&filled(shared[c]))r[c]=shared[c];
+  for(const c of 'BCDEFGH')if(filled(r[c]))shared[c]=r[c];
+  previous=row.number;
+  return {...row,cells:r,parentSerial};
  });
 }
+
 export function scoreWorkbook(raw){
  const kindOf=name=>/^1\s/.test(name)?0:/^2\s/.test(name)?1:/^3\s/.test(name)?2:/maintenance/i.test(name)?3:/general|genaral|basic road/i.test(name)?4:-1;
  const by=new Map(raw.map(t=>[kindOf(t.name),t]));
@@ -45,12 +49,19 @@ export function scoreWorkbook(raw){
  }
  const seg=by.get(1),segRows=segmentedRows(active(seg?.rows||[],2)),used=new Set();let required=0,done=0,stretchTarget=0,stretchRows=0,unknown=0;
  for(const road of split){
-  const aliases=[road.cells.B,road.cells.E].filter(filled).map(key);
+  const aliases=[road.cells.B,road.cells.E].filter(filled).map(roadKey);
+  const roadSerial=serial(road.cells.A),uniqueSerial=roadSerial&&listed.filter(r=>serial(r.cells.A)===roadSerial).length===1;
+  const uniqueName=name=>listed.filter(r=>[r.cells.B,r.cells.E].filter(filled).map(roadKey).includes(name)).length===1;
   const asset=key(road.cells.D),uniqueAsset=filled(road.cells.D)&&listed.filter(r=>key(r.cells.D)===asset).length===1;
   const matches=segRows.filter(r=>{
    // A unique PRICE asset identifies the parent even when stretch names differ.
    if(uniqueAsset&&filled(r.cells.D))return key(r.cells.D)===asset;
-   return aliases.includes(key(r.cells.B))||aliases.includes(key(r.cells.E));
+   const names=[r.cells.B,r.cells.E].filter(filled).map(roadKey);
+   if(names.some(name=>aliases.includes(name)&&uniqueName(name)))return true;
+   // Serial fallback requires two shared name tokens; a serial alone is not identity.
+   const tokens=name=>name.split(' ').filter(t=>!['road','roads','link','branch'].includes(t));
+   const sameToken=(t,u)=>u===t||(Math.min(t.length,u.length)>=6&&(u.startsWith(t)||t.startsWith(u)));
+   return uniqueSerial&&r.parentSerial===roadSerial&&names.some(name=>aliases.some(alias=>new Set(tokens(alias).filter(t=>tokens(name).some(u=>sameToken(t,u)))).size>=2));
   });
   matches.forEach(r=>used.add(r));
   const declared=Math.max(0,...matches.map(r=>Number(r.cells.H)||0));

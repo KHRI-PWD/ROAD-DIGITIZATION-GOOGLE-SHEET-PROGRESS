@@ -1,6 +1,6 @@
 import {unpack,publication,publishReport} from './shared-report.js?v=20261118-4';
-import {summarize} from './insights.js?v=20261122-1';
-import {labels,analyzeZip,normalize,progress,sectionProgress} from './engine.js?v=20261122-1';
+import {summarize} from './insights.js?v=20261122-2';
+import {labels,analyzeZip,normalize,progress,sectionProgress} from './engine.js?v=20261122-2';
 const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),pct=v=>(v*100).toFixed(1)+'%';
 let previous=null,data=null,original=null,selected=null,busy=false;const KEY='khri-road-progress-v4';let draft=false,refreshing=false,lastPublication=null;
 function persist(){awaitingPublication=null;draft=true;$('sharedState').textContent='Unpublished preview — only visible in this browser. Use Publish for everyone.';try{localStorage.setItem(KEY,JSON.stringify({data,original,previous}));}catch{$('notice').hidden=false;$('notice').textContent='Results are available now, but this browser could not save them. Export your report before closing.';}}

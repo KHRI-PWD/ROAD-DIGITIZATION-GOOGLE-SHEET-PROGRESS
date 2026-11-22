@@ -1,6 +1,7 @@
 /* Road and stretch-aware scoring, revision 4. */
 export const labels=['Listed roads','Segmented roads','New roads','Maintenance history','General road data'];
 export const filled=v=>v!==null&&v!==undefined&&!['','-','--','n/a','na','nil','none','not applicable'].includes(String(v).trim().toLowerCase());
+export const completed=v=>filled(v)||/^(na|n\s*\/\s*a|not\s+applicable)$/i.test(String(v??'').trim());
 export function scoreSheet(name,rows,base,kind){
  const rr=rows.filter(r=>r.number>(kind<3?2:1)&&Object.entries(r.cells).some(([c,v])=>!(kind===1?['A','K','W','X','Y']:kind<3?['A','T','U']:kind===3?['A','B','G','N']:['A','J']).includes(c)&&filled(v)));
  let required=0,count=0;
@@ -9,7 +10,7 @@ export function scoreSheet(name,rows,base,kind){
   if(kind===0||kind===2){cols=(kind===0?'DEFHIJKLMNOPR':'EFHIJKLMNOPR').split('');if(String(r.F??'').trim().toUpperCase()==='SH')cols.push('G');if(yes('P'))cols.push('Q');if(yes('R'))cols.push('S');}
   else if(kind===1){cols='BDEFHIJLMNOPQRSU'.split('');if(String(r.F??'').trim().toUpperCase()==='SH')cols.push('G');if(yes('S'))cols.push('T');if(yes('U'))cols.push('V');}
   else cols=(kind===3?'CDEFHIJKLM':'BCDEFGHI').split('');
-  required+=cols.length;count+=cols.filter(c=>filled(r[c])||(kind===3&&'HIJKLM'.includes(c)&&/^(na|n\/a|nil|none|not applicable)$/i.test(String(r[c]??'').trim()))).length;
+  required+=cols.length;count+=cols.filter(c=>completed(r[c])||(kind===3&&'HIJKLM'.includes(c)&&/^(na|n\/a|nil|none|not applicable)$/i.test(String(r[c]??'').trim()))).length;
  }
  const target=kind>=3?Math.max(base,rr.length):rr.length;
  if(kind>=3)required+=(target-rr.length)*(kind===3?10:8);
@@ -95,7 +96,7 @@ function migrateMaintenance(s){
  const scored=scoreWorkbook(s.entries).tabs;const general=scored.find(t=>t.kind===4);if(general){s.tabs=s.tabs.filter(t=>t.kind!==4);s.tabs.push(general);}const updated=scored.find(t=>t.kind===3);
  if(updated){s.tabs=s.tabs.filter(t=>t.kind!==3);s.tabs.push(updated);}
 }
-export function normalize(data){for(const s of data.sections){migrateMaintenance(s);if(s.entries?.some(t=>/^1\s/.test(t.name))&&s.entries.some(t=>/^2\s/.test(t.name))){const updated=scoreWorkbook(s.entries).tabs.find(t=>t.kind===1);if(updated){s.tabs=s.tabs.filter(t=>t.kind!==1);s.tabs.push(updated);if(data.warnings){data.warnings=data.warnings.filter(w=>!(w.startsWith(s.section+': ')&&(w.includes('unmatched Segmented roads rows')||w.includes('segmented roads have no total stretch count'))));if(updated.unmatched)data.warnings.push(s.section+': '+updated.unmatched+' unmatched Segmented roads rows excluded; check road names.');if(updated.unknown)data.warnings.push(s.section+': '+updated.unknown+' segmented roads have no total stretch count; minimum one pending stretch used.');}}}for(let k=0;k<5;k++)if(!s.tabs.some(t=>t.kind===k))s.tabs.push({name:labels[k],kind:k,rows:0,target:0,filled:0,required:0,missing:true});}return data;}
+export function normalize(data){for(const s of data.sections){if(s.entries?.some(t=>/^1\s/.test(t.name))){const scored=scoreWorkbook(s.entries);for(const t of scored.tabs){s.tabs=s.tabs.filter(old=>old.kind!==t.kind);s.tabs.push(t);}}migrateMaintenance(s);if(s.entries?.some(t=>/^1\s/.test(t.name))&&s.entries.some(t=>/^2\s/.test(t.name))){const updated=scoreWorkbook(s.entries).tabs.find(t=>t.kind===1);if(updated){s.tabs=s.tabs.filter(t=>t.kind!==1);s.tabs.push(updated);if(data.warnings){data.warnings=data.warnings.filter(w=>!(w.startsWith(s.section+': ')&&(w.includes('unmatched Segmented roads rows')||w.includes('segmented roads have no total stretch count'))));if(updated.unmatched)data.warnings.push(s.section+': '+updated.unmatched+' unmatched Segmented roads rows excluded; check road names.');if(updated.unknown)data.warnings.push(s.section+': '+updated.unknown+' segmented roads have no total stretch count; minimum one pending stretch used.');}}}for(let k=0;k<5;k++)if(!s.tabs.some(t=>t.kind===k))s.tabs.push({name:labels[k],kind:k,rows:0,target:0,filled:0,required:0,missing:true});}return data;}
 function xml(str){const d=new DOMParser().parseFromString(str,'application/xml');if(d.getElementsByTagName('parsererror').length)throw Error('Invalid workbook XML');return d;}
 const tags=(el,name)=>[...el.getElementsByTagNameNS('*',name)];
 async function textFile(zip,path){const f=zip.file(path);if(!f)throw Error('Missing workbook component: '+path);return await f.async('string');}

@@ -72,6 +72,12 @@ export function scoreWorkbook(raw){
   matches.forEach(r=>used.add(r));
   const declared=Math.max(0,...matches.map(r=>Number(r.cells.H)||0));
   const distinct=new Map();for(const r of matches){const n=Number(r.cells.I);if(Number.isInteger(n)&&n>0&&!distinct.has(n))distinct.set(n,r);}
+  // A grouped row can explicitly describe several numbered stretches.
+  for(const r of matches){
+   if(Number.isInteger(Number(r.cells.I))&&Number(r.cells.I)>0)continue;
+   const numbers=[...String(r.cells.I??'').matchAll(/\b(?:stretch|segment)\s*(?:no\.?\s*)?(\d+)\b/gi)].map(m=>Number(m[1]));
+   for(const n of new Set(numbers))if(n>0&&Number.isInteger(declared)&&declared>0&&n<=declared&&!distinct.has(n))distinct.set(n,r);
+  }
   // An entered stretch without its number earns partial credit, not zero for the whole row.
   const unnumbered=matches.filter(r=>!filled(r.cells.I)&&'LMNOPQR'.split('').some(c=>filled(r.cells[c])));
   for(const r of unnumbered){let n=1;while(distinct.has(n))n++;distinct.set(n,r);}

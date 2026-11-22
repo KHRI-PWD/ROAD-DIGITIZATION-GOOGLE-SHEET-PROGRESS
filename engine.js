@@ -19,6 +19,7 @@ export function progress(t){if(!t||t.missing)return 0;if(t.notApplicable)return 
 export const sectionProgress=s=>{const tabs=s.tabs.filter(t=>t.kind!==2&&!t.notApplicable);return tabs.length?tabs.reduce((a,t)=>a+progress(t),0)/tabs.length:0;};
 const key=v=>String(v??'').trim().toLowerCase().replace(/\s+/g,' ');
 const roadKey=v=>key(v).replace(/[-–—.,/()]+/g,' ').replace(/\s+/g,' ').trim();
+const identity=v=>roadKey(v).replace(/\bch(?:ainage)?\b.*$/,'').replace(/([aeiou])\1+/g,'$1').trim();
 const serial=v=>filled(v)&&Number.isFinite(Number(v))?String(Number(v)):key(v);
 const active=(rows,header)=>rows.filter(r=>r.number>header&&Object.entries(r.cells).some(([c,v])=>c!=='A'&&filled(v)));
 // Carry only shared road metadata inside an explicitly bounded stretch group.
@@ -26,9 +27,9 @@ export function segmentedRows(rows){
  let shared=null,previous=0,parentSerial='';
  return rows.map(row=>{
   const r={...row.cells};
-  const changedName=filled(r.B)&&shared&&roadKey(r.B)!==roadKey(shared.B);
+  const changedName=filled(r.B)&&shared&&identity(r.B)!==identity(shared.B);
   const changedAsset=filled(r.D)&&shared&&filled(shared.D)&&key(r.D)!==key(shared.D);
-  const starts=filled(r.A)||!shared||changedName||changedAsset||row.number!==previous+1;
+  const starts=filled(r.A)||!shared||changedName||(changedAsset&&!filled(r.B))||row.number!==previous+1;
   if(starts){shared={};parentSerial=serial(r.A);}
   else for(const c of 'BCDEFGH')if(!filled(r[c])&&filled(shared[c]))r[c]=shared[c];
   for(const c of 'BCDEFGH')if(filled(r[c]))shared[c]=r[c];
@@ -54,6 +55,9 @@ export function scoreWorkbook(raw){
   const uniqueName=name=>listed.filter(r=>[r.cells.B,r.cells.E].filter(filled).map(roadKey).includes(name)).length===1;
   const asset=key(road.cells.D),uniqueAsset=filled(road.cells.D)&&listed.filter(r=>key(r.cells.D)===asset).length===1;
   const matches=segRows.filter(r=>{
+   const identities=[r.cells.B,r.cells.E].filter(filled).map(identity);
+   const namedParents=listed.filter(p=>[p.cells.B,p.cells.E].filter(filled).some(n=>identities.includes(identity(n))));
+   if(namedParents.length===1)return namedParents[0]===road;
    // A unique PRICE asset identifies the parent even when stretch names differ.
    if(uniqueAsset&&filled(r.cells.D))return key(r.cells.D)===asset;
    const names=[r.cells.B,r.cells.E].filter(filled).map(roadKey);
@@ -80,7 +84,7 @@ export function scoreWorkbook(raw){
  const nameColumn=kind===3?'C':'B',fieldsPerRoad=kind===3?10:8;
   const roads=new Map();for(const r of listed){const id=key(r.cells.B)||key(r.cells.E);if(!roads.has(id))roads.set(id,[r.cells.B,r.cells.E].filter(filled).map(key));}
   const rows=active(general.rows,1);let count=0,matched=0;const consumed=new Set();
-  for(const aliases of roads.values()){const candidates=rows.filter(r=>!consumed.has(r)&&aliases.includes(key(r.cells[nameColumn])));if(candidates.length){const best=candidates.sort((a,b)=>scoreSheet('',[b],0,kind).filled-scoreSheet('',[a],0,kind).filled)[0];consumed.add(best);count+=scoreSheet('',[best],0,kind).filled;matched++;}}
+  for(const aliases of roads.values()){const candidates=rows.filter(r=>!consumed.has(r)&&(aliases.includes(key(r.cells[nameColumn]))||(aliases.map(identity).includes(identity(r.cells[nameColumn]))&&[...roads.values()].filter(a=>a.map(identity).includes(identity(r.cells[nameColumn]))).length===1)));if(candidates.length){const best=candidates.sort((a,b)=>scoreSheet('',[b],0,kind).filled-scoreSheet('',[a],0,kind).filled)[0];consumed.add(best);count+=scoreSheet('',[best],0,kind).filled;matched++;}}
   tabs.push({name:general.name,kind,rows:matched,target:roads.size,filled:count,required:roads.size*fieldsPerRoad,nil:false,maintenanceVersion:kind===3?6:undefined,unmatched:rows.length-consumed.size});
  }
  return {base,tabs,roadCounts:{single:singles.length,segmented:split.length}};
@@ -88,7 +92,7 @@ export function scoreWorkbook(raw){
 // Recalculate maintenance from published rows using the same rules as a new ZIP.
 function migrateMaintenance(s){
  if(!s.entries?.some(t=>/^1\s/.test(t.name))||!s.entries.some(t=>/maintenance/i.test(t.name)))return;
- const updated=scoreWorkbook(s.entries).tabs.find(t=>t.kind===3);
+ const scored=scoreWorkbook(s.entries).tabs;const general=scored.find(t=>t.kind===4);if(general){s.tabs=s.tabs.filter(t=>t.kind!==4);s.tabs.push(general);}const updated=scored.find(t=>t.kind===3);
  if(updated){s.tabs=s.tabs.filter(t=>t.kind!==3);s.tabs.push(updated);}
 }
 export function normalize(data){for(const s of data.sections){migrateMaintenance(s);if(s.entries?.some(t=>/^1\s/.test(t.name))&&s.entries.some(t=>/^2\s/.test(t.name))){const updated=scoreWorkbook(s.entries).tabs.find(t=>t.kind===1);if(updated){s.tabs=s.tabs.filter(t=>t.kind!==1);s.tabs.push(updated);if(data.warnings){data.warnings=data.warnings.filter(w=>!(w.startsWith(s.section+': ')&&(w.includes('unmatched Segmented roads rows')||w.includes('segmented roads have no total stretch count'))));if(updated.unmatched)data.warnings.push(s.section+': '+updated.unmatched+' unmatched Segmented roads rows excluded; check road names.');if(updated.unknown)data.warnings.push(s.section+': '+updated.unknown+' segmented roads have no total stretch count; minimum one pending stretch used.');}}}for(let k=0;k<5;k++)if(!s.tabs.some(t=>t.kind===k))s.tabs.push({name:labels[k],kind:k,rows:0,target:0,filled:0,required:0,missing:true});}return data;}

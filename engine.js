@@ -30,10 +30,11 @@ export function segmentedRows(rows){
   const r={...row.cells};
   const changedName=filled(r.B)&&shared&&identity(r.B)!==identity(shared.B);
   const changedAsset=filled(r.D)&&shared&&filled(shared.D)&&key(r.D)!==key(shared.D);
-  const starts=filled(r.A)||!shared||changedName||(changedAsset&&!filled(r.B))||row.number!==previous+1;
+  const changedSerial=filled(r.A)&&(!shared||serial(r.A)!==serial(shared.A));
+  const starts=changedSerial||!shared||changedName||(changedAsset&&!filled(r.B))||row.number!==previous+1;
   if(starts){shared={};parentSerial=serial(r.A);}
-  else for(const c of 'BCDEFGH')if(!filled(r[c])&&filled(shared[c]))r[c]=shared[c];
-  for(const c of 'BCDEFGH')if(filled(r[c]))shared[c]=r[c];
+  else for(const c of 'ABCDEFGH')if(!filled(r[c])&&filled(shared[c]))r[c]=shared[c];
+  for(const c of 'ABCDEFGH')if(filled(r[c]))shared[c]=r[c];
   previous=row.number;
   return {...row,cells:r,parentSerial};
  });

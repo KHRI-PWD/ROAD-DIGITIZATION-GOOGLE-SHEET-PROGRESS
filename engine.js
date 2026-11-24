@@ -139,6 +139,12 @@ export function viewableEntries(raw){
  return raw.map(t=>{const headerNumber=/^[123]\s/.test(t.name.trim())?2:1;
  const header=t.rows.find(r=>r.number===headerNumber)?.cells||{};
  const columns=Object.keys(header).filter(c=>filled(header[c])&&!/contact|phone|mobile|email/i.test(String(header[c]))).map(key=>({key,label:String(header[key])}));
+ // Preserve standard segmented fields even when their header cells were cleared.
+ if(/^2\s/.test(t.name.trim())){
+  const names=['Serial number','Road name','Road length','PRICE asset ID','Corrected road name','Road class','SH number','Total stretches','Stretch number','Segmentation reason','Other reason','Stretch length','Start chainage','End chainage','Start place','End place','Feature ID','Mapped','Adjacent sections','Section details','Other districts','District details','Adjacent sections in other districts','Remarks'];
+  for(let i=0;i<names.length;i++){const key=String.fromCharCode(65+i);if(!columns.some(c=>c.key===key)&&!filled(header[key]))columns.push({key,label:names[i]});}
+  columns.sort((a,b)=>a.key.localeCompare(b.key));
+ }
  const rows=t.rows.filter(r=>r.number>headerNumber&&columns.some(c=>c.key!=='A'&&filled(r.cells[c.key]))).map(r=>({number:r.number,cells:Object.fromEntries(columns.map(c=>[c.key,r.cells[c.key]??'']))}));
  return {name:t.name,columns,rows};
  });

@@ -51,14 +51,15 @@ export function scoreWorkbook(raw){
   if(kind===2)tabs.push({...scoreSheet(t.name,t.rows,base,kind),excluded:kind===2});
  }
  const seg=by.get(1),segRows=segmentedRows(active(seg?.rows||[],2)),used=new Set();let required=0,done=0,stretchTarget=0,stretchRows=0,unknown=0;
+ const parentIdentities=new Map(listed.map(p=>[p,[p.cells.B,p.cells.E].filter(filled).map(identity)]));
+ const segmentParents=new Map(segRows.map(r=>{const ids=[r.cells.B,r.cells.E].filter(filled).map(identity);return [r,listed.filter(p=>parentIdentities.get(p).some(n=>ids.includes(n)))];}));
  for(const road of split){
   const aliases=[road.cells.B,road.cells.E].filter(filled).map(roadKey);
   const roadSerial=serial(road.cells.A),uniqueSerial=roadSerial&&listed.filter(r=>serial(r.cells.A)===roadSerial).length===1;
   const uniqueName=name=>listed.filter(r=>[r.cells.B,r.cells.E].filter(filled).map(roadKey).includes(name)).length===1;
   const asset=key(road.cells.D),uniqueAsset=filled(road.cells.D)&&listed.filter(r=>key(r.cells.D)===asset).length===1;
   const matches=segRows.filter(r=>{
-   const identities=[r.cells.B,r.cells.E].filter(filled).map(identity);
-   const namedParents=listed.filter(p=>[p.cells.B,p.cells.E].filter(filled).some(n=>identities.includes(identity(n))));
+   const namedParents=segmentParents.get(r);
    if(namedParents.length===1)return namedParents[0]===road;
    // A unique PRICE asset identifies the parent even when stretch names differ.
    if(uniqueAsset&&filled(r.cells.D))return key(r.cells.D)===asset;
@@ -97,13 +98,7 @@ export function scoreWorkbook(raw){
  }
  return {base,tabs,roadCounts:{single:singles.length,segmented:split.length}};
 }
-// Recalculate maintenance from published rows using the same rules as a new ZIP.
-function migrateMaintenance(s){
- if(!s.entries?.some(t=>/^1\s/.test(t.name))||!s.entries.some(t=>/maintenance/i.test(t.name)))return;
- const scored=scoreWorkbook(s.entries).tabs;const general=scored.find(t=>t.kind===4);if(general){s.tabs=s.tabs.filter(t=>t.kind!==4);s.tabs.push(general);}const updated=scored.find(t=>t.kind===3);
- if(updated){s.tabs=s.tabs.filter(t=>t.kind!==3);s.tabs.push(updated);}
-}
-export function normalize(data){for(const s of data.sections){if(s.entries?.some(t=>/^1\s/.test(t.name))){const scored=scoreWorkbook(s.entries);for(const t of scored.tabs){s.tabs=s.tabs.filter(old=>old.kind!==t.kind);s.tabs.push(t);}}migrateMaintenance(s);if(s.entries?.some(t=>/^1\s/.test(t.name))&&s.entries.some(t=>/^2\s/.test(t.name))){const updated=scoreWorkbook(s.entries).tabs.find(t=>t.kind===1);if(updated){s.tabs=s.tabs.filter(t=>t.kind!==1);s.tabs.push(updated);if(data.warnings){data.warnings=data.warnings.filter(w=>!(w.startsWith(s.section+': ')&&(w.includes('unmatched Segmented roads rows')||w.includes('segmented roads have no total stretch count'))));if(updated.unmatched)data.warnings.push(s.section+': '+updated.unmatched+' unmatched Segmented roads rows excluded; check road names.');if(updated.unknown)data.warnings.push(s.section+': '+updated.unknown+' segmented roads have no total stretch count; minimum one pending stretch used.');}}}for(let k=0;k<5;k++)if(!s.tabs.some(t=>t.kind===k))s.tabs.push({name:labels[k],kind:k,rows:0,target:0,filled:0,required:0,missing:true});for(const t of s.tabs)t.excluded=[2,3].includes(t.kind);}return data;}
+export function normalize(data){for(const s of data.sections){let scored;if(s.entries?.some(t=>/^1\s/.test(t.name))){scored=scoreWorkbook(s.entries);for(const t of scored.tabs){s.tabs=s.tabs.filter(old=>old.kind!==t.kind);s.tabs.push(t);}}if(s.entries?.some(t=>/^1\s/.test(t.name))&&s.entries.some(t=>/^2\s/.test(t.name))){const updated=scored?.tabs.find(t=>t.kind===1);if(updated){s.tabs=s.tabs.filter(t=>t.kind!==1);s.tabs.push(updated);if(data.warnings){data.warnings=data.warnings.filter(w=>!(w.startsWith(s.section+': ')&&(w.includes('unmatched Segmented roads rows')||w.includes('segmented roads have no total stretch count'))));if(updated.unmatched)data.warnings.push(s.section+': '+updated.unmatched+' unmatched Segmented roads rows excluded; check road names.');if(updated.unknown)data.warnings.push(s.section+': '+updated.unknown+' segmented roads have no total stretch count; minimum one pending stretch used.');}}}for(let k=0;k<5;k++)if(!s.tabs.some(t=>t.kind===k))s.tabs.push({name:labels[k],kind:k,rows:0,target:0,filled:0,required:0,missing:true});for(const t of s.tabs)t.excluded=[2,3].includes(t.kind);}return data;}
 function xml(str){const d=new DOMParser().parseFromString(str,'application/xml');if(d.getElementsByTagName('parsererror').length)throw Error('Invalid workbook XML');return d;}
 const tags=(el,name)=>[...el.getElementsByTagNameNS('*',name)];
 async function textFile(zip,path){const f=zip.file(path);if(!f)throw Error('Missing workbook component: '+path);return await f.async('string');}

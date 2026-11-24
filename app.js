@@ -1,6 +1,6 @@
 import {unpack,publication,publishReport} from './shared-report.js?v=20261118-4';
-import {summarize} from './insights.js?v=20261124-2';
-import {labels,analyzeZip,normalize,progress,sectionProgress} from './engine.js?v=20261124-2';
+import {summarize} from './insights.js?v=20261124-3';
+import {labels,analyzeZip,normalize,progress,sectionProgress} from './engine.js?v=20261124-3';
 const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),pct=v=>(v*100).toFixed(1)+'%';
 let previous=null,data=null,original=null,selected=null,busy=false;const KEY='khri-road-progress-v4';let draft=false,refreshing=false,lastPublication=null;
 function persist(){awaitingPublication=null;draft=true;$('sharedState').textContent='Unpublished preview — only visible in this browser. Use Publish for everyone.';try{localStorage.setItem(KEY,JSON.stringify({data,original,previous}));}catch{$('notice').hidden=false;$('notice').textContent='Results are available now, but this browser could not save them. Export your report before closing.';}}
@@ -53,9 +53,9 @@ $('search').oninput=renderSections;$('divisionFilter').onchange=render;$('status
 $('export').onclick=()=>{if(!data)return;const rows=[['Division','Subdivision','Section','Worksheet','Entered rows','Target rows','Filled fields','Expected fields','Confirmed Nil','Worksheet completion % (New roads and Maintenance excluded)','Section completion %','Source path']];for(const s of data.sections)for(const t of s.tabs)rows.push([s.division,s.subdivision,s.section,t.name,t.rows,t.target,t.filled,t.required,t.nil?'Yes':'No',t.excluded?'Excluded':t.notApplicable?'N/A':(progress(t)*100).toFixed(2),(sectionProgress(s)*100).toFixed(2),s.path]);const csv='\uFEFF'+rows.map(r=>r.map(v=>'"'+String(v).replace(/^[=+@-]/,"'$&").replace(/"/g,'""')+'"').join(',')).join('\r\n');const u=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})),a=document.createElement('a');a.href=u;a.download='Road_Network_Progress_'+new Date().toISOString().slice(0,10)+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);};
 async function snapshot(quiet=false){
  if(refreshing||busy)return;refreshing=true;
- try{const res=await fetch('snapshot.json?t='+Date.now(),{cache:'no-store'});if(!res.ok)throw Error('Published report unavailable ('+res.status+').');const result=unpack(await res.json());
+ try{const res=await fetch('snapshot.json',{cache:'no-cache'});if(!res.ok)throw Error('Published report unavailable ('+res.status+').');const result=unpack(await res.json());
  const id=result.data.publicationId||result.data.publishedAt||'initial';
- if(quiet&&draft)return;
+ if(quiet&&(draft||(data&&id===lastPublication)))return;
  data=normalize(result.data);previous=result.previous?normalize(result.previous):null;original=structuredClone(data);lastPublication=id;draft=false;
  $('sharedState').textContent=data.publishedAt?'Published report · '+new Date(data.publishedAt).toLocaleString('en-IN'):'Published baseline · Upload and publish a new report to update everyone.';render();
  }catch(e){$('sharedState').textContent='Could not check the shared report. '+(data?'Showing the currently loaded report. ':'')+e.message;}finally{refreshing=false;}
@@ -86,5 +86,5 @@ $('publishOpen').onclick=()=>{if(!data||busy)return;$('publishMessage').textCont
 $('publishDialog').addEventListener('close',()=>{$('githubToken').value='';});
 $('publishConfirm').onclick=async()=>{if(!data||busy)return;const report=publication(data,previous);let token=$('githubToken').value;$('githubToken').value='';busy=true;$('publishConfirm').disabled=true;$('publishMessage').textContent='Saving shared report to GitHub…';try{const sha=await publishReport(report,token);data=report;lastPublication=report.publicationId;draft=true;$('publishMessage').textContent='Saved to GitHub (commit '+sha.slice(0,7)+'). GitHub Pages must finish deployment before visitors receive it.';$('sharedState').textContent='Saved to GitHub — waiting for GitHub Pages deployment.';awaitingPublication=report.publicationId;}catch(e){$('publishMessage').textContent=e.message;}finally{token='';busy=false;$('publishConfirm').disabled=false;}};
 let awaitingPublication=null;
-setInterval(async()=>{if(busy||refreshing||document.hidden||$('detail').open||$('summaryList').open)return;if(awaitingPublication){try{const r=await fetch('snapshot.json?t='+Date.now(),{cache:'no-store'});if(r.ok&&(await r.json()).publicationId===awaitingPublication){awaitingPublication=null;draft=false;await snapshot();$('publishMessage').textContent='Published report is now live for visitors.';}}catch{}}else if(!draft)await snapshot(true);},60000);
+setInterval(async()=>{if(busy||refreshing||document.hidden||$('detail').open||$('summaryList').open)return;if(awaitingPublication){try{const r=await fetch('snapshot.json',{cache:'no-cache'});if(r.ok&&(await r.json()).publicationId===awaitingPublication){awaitingPublication=null;draft=false;await snapshot();$('publishMessage').textContent='Published report is now live for visitors.';}}catch{}}else if(!draft)await snapshot(true);},60000);
 await snapshot();

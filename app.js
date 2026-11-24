@@ -9,7 +9,7 @@ const statusName={review:'Needs review',done:'Fully entered',none:'Not started',
 function render(){
  if(!data)return;const all=data.sections,divs=[...new Set(all.map(s=>s.division))].sort(),overall=all.reduce((a,s)=>a+sectionProgress(s),0)/all.length;
  $('source').textContent=data.fileName||'Published report';$('sourceDate').textContent=(data.loadedAt?'Imported '+new Date(data.loadedAt).toLocaleString('en-IN'):'Snapshot from 12 November 2026')+' · '+all.length+' section workbooks · Drop a ZIP to replace';
- $('overall').textContent=pct(overall);$('overallBar').style.width=pct(overall);$('divCount').textContent=divs.length;$('sectionTotal').textContent=all.length+' sections in this snapshot';const started=all.filter(s=>sectionProgress(s)>0).length;$('started').textContent=started;$('notStarted').textContent=all.length-started+' awaiting first entry';$('complete').textContent=all.filter(s=>sectionProgress(s)>0.9).length;
+ $('overall').textContent=pct(overall);$('overallBar').style.width=pct(overall);$('divCount').textContent=divs.length;$('sectionTotal').textContent=all.length+' sections in this snapshot';const below75=all.filter(s=>sectionProgress(s)<0.75).length;$('started').textContent=below75;$('notStarted').textContent='Click to view sections and divisions';$('complete').textContent=all.filter(s=>sectionProgress(s)>0.9).length;
  const current=$('divisionFilter').value;$('divisionFilter').innerHTML='<option value="">All divisions</option>'+divs.map(d=>`<option>${esc(d)}</option>`).join('');$('divisionFilter').value=divs.includes(current)?current:'';
  $('divisions').innerHTML=divs.map(d=>{const list=all.filter(s=>s.division===d),p=list.reduce((a,s)=>a+sectionProgress(s),0)/list.length;return `<button class="division-card ${current===d?'selected':''}" data-division="${esc(d)}"><strong title="${esc(d)}">${esc(d)}</strong><div class="metrics"><span>${list.length} sections</span><b>${pct(p)}</b></div><div class="progress"><i style="width:${pct(p)}"></i></div></button>`;}).join('');
  $('divisions').querySelectorAll('button').forEach(b=>b.onclick=()=>{$('divisionFilter').value=$('divisionFilter').value===b.dataset.division?'':b.dataset.division;render();});
@@ -24,8 +24,8 @@ function renderSections(){if(!data)return;const q=$('search').value.toLowerCase(
 function openSection(index){selected=index;const s=data.sections[index];$('detailDivision').textContent=s.division;$('detailTitle').textContent=s.section;$('detailPath').textContent=s.path;$('saveMessage').textContent='';$('detailContent').innerHTML=labels.map((label,k)=>{const t=s.tabs.find(t=>t.kind===k);return `<div class="worksheet" data-kind="${k}"><div><h3>${label}</h3><p>${esc(t.name)}<br>${t.kind===1?`${t.roadCount} parent roads · ${t.rows} unique stretches / ${t.target} expected stretches`: `${t.rows} entered rows · ${t.target} target rows`}${[2,3].includes(t.kind)?" · Excluded from progress":""}${t.notApplicable?" · Not applicable":""}${t.missing?' · Worksheet missing':''}</p></div><label>Filled fields<input type="number" min="0" step="1" max="1000000" class="filled" value="${t.filled}" ${t.missing||t.locked||t.excluded||t.notApplicable?'disabled':''}></label><label>Expected fields<input type="number" min="0" step="1" max="1000000" class="required" value="${t.required}" ${t.missing||t.locked||t.excluded||t.notApplicable?'disabled':''}></label><label class="nil"><input type="checkbox" class="nilCheck" ${t.nil?'checked':''} disabled>Confirmed Nil</label><b>${t.excluded?"Excluded":t.notApplicable?"N/A":pct(progress(t))}</b></div>`;}).join('')+'<p class="sub" style="margin-top:18px">Adjust expected fields only for a verified change in scope. Segmented counts are calculated from parent roads and unique stretch numbers. Sheets with no applicable roads are excluded from the average. Uploading a new ZIP replaces these adjustments.</p>';setupEntries(s);$('detail').showModal();}
 function showSummaryList(mode){
  if(!data)return;
- const matches=data.sections.map((s,index)=>({s,index})).filter(({s})=>mode==='above'?sectionProgress(s)>0.9:sectionProgress(s)===0).sort((a,b)=>a.s.division.localeCompare(b.s.division)||a.s.section.localeCompare(b.s.section));
- $('summaryListTitle').textContent=mode==='above'?'Sections filled above 90%':'Sections awaiting first entry';
+ const matches=data.sections.map((s,index)=>({s,index})).filter(({s})=>mode==='above'?sectionProgress(s)>0.9:sectionProgress(s)<0.75).sort((a,b)=>a.s.division.localeCompare(b.s.division)||a.s.section.localeCompare(b.s.section));
+ $('summaryListTitle').textContent=mode==='above'?'Sections filled above 90%':'Sections below 75%';
  $('summaryListCount').textContent=matches.length+' sections · Select a section to view its worksheet entries.';
  $('summaryListRows').innerHTML=matches.length?matches.map(({s,index})=>`<tr><td><button class="section-list-link" data-section="${index}">${esc(s.section)}</button></td><td>${esc(s.division)}</td><td>${pct(sectionProgress(s))}</td></tr>`).join(''):'<tr><td colspan="3">No sections in this category.</td></tr>';
  $('summaryListRows').querySelectorAll('button').forEach(b=>b.onclick=()=>{$('summaryList').close();openSection(Number(b.dataset.section));});
@@ -33,7 +33,8 @@ function showSummaryList(mode){
 }
 $('above90Card').onclick=()=>showSummaryList('above');
 $('above90Card').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();showSummaryList('above');}};
-$('notStarted').onclick=()=>showSummaryList('none');
+$('below75Card').onclick=()=>showSummaryList('below');
+$('below75Card').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();showSummaryList('below');}};
 let entryPage=0;
 function setupEntries(section){entryPage=0;$('entrySearch').value='';$('entrySheet').innerHTML=(section.entries||[]).map((t,i)=>`<option value="${i}">${esc(t.name)}</option>`).join('');renderEntries();}
 function renderEntries(){

@@ -1,4 +1,4 @@
-import {sectionProgress} from './engine.js?v=20261124-1';
+import {sectionProgress} from './engine.js?v=20261124-2';
 const key=s=>[s.division,s.subdivision,s.section].map(v=>String(v||'').trim().toLowerCase()).join('|');
 const mean=a=>a.length?a.reduce((x,s)=>x+sectionProgress(s),0)/a.length:0;
 export function summarize(current,previous){

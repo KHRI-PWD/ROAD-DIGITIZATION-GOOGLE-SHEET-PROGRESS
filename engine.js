@@ -21,6 +21,21 @@ export const sectionProgress=s=>{const tabs=s.tabs.filter(t=>![2,3].includes(t.k
 const key=v=>String(v??'').trim().toLowerCase().replace(/\s+/g,' ');
 const roadKey=v=>key(v).replace(/[-–—.,/()]+/g,' ').replace(/\s+/g,' ').trim();
 const identity=v=>roadKey(v).replace(/\bch(?:ainage)?\b.*$/,'').replace(/([aeiou])\1+/g,'$1').trim();
+// Conservative general-data aliases: ignore generic road suffixes, then allow
+// one small spelling variation only when another place token agrees exactly.
+const generalTokens=v=>identity(v).replace(/\b(?:road|roads|rd)\b/g,' ').trim().split(/\s+/).filter(Boolean);
+function nearGeneralName(a,b){
+ const x=generalTokens(a),y=generalTokens(b);
+ if(!x.length||x.length!==y.length)return false;
+ const different=x.map((t,i)=>t===y[i]?-1:i).filter(i=>i>=0);
+ if(!different.length)return true;
+ if(different.length!==1||x.length<2)return false;
+ const i=different[0],u=x[i],v=y[i];
+ if(Math.min(u.length,v.length)<7||Math.abs(u.length-v.length)>2)return false;
+ let prev=Array.from({length:v.length+1},(_,j)=>j);
+ for(let n=1;n<=u.length;n++){const next=[n];for(let j=1;j<=v.length;j++)next[j]=Math.min(next[j-1]+1,prev[j]+1,prev[j-1]+(u[n-1]!==v[j-1]));prev=next;}
+ return prev[v.length]<=2;
+}
 const serial=v=>filled(v)&&Number.isFinite(Number(v))?String(Number(v)):key(v);
 const active=(rows,header)=>rows.filter(r=>r.number>header&&Object.entries(r.cells).some(([c,v])=>c!=='A'&&filled(v)));
 // Carry only shared road metadata inside an explicitly bounded stretch group.
@@ -93,7 +108,18 @@ export function scoreWorkbook(raw){
  const nameColumn=kind===3?'C':'B',fieldsPerRoad=kind===3?10:8;
   const roads=new Map();for(const r of listed){const id=key(r.cells.B)||key(r.cells.E);if(!roads.has(id))roads.set(id,[r.cells.B,r.cells.E].filter(filled).map(key));}
   const rows=active(general.rows,1);let count=0,matched=0;const consumed=new Set();
-  for(const aliases of roads.values()){const candidates=rows.filter(r=>!consumed.has(r)&&(aliases.includes(key(r.cells[nameColumn]))||(aliases.map(identity).includes(identity(r.cells[nameColumn]))&&[...roads.values()].filter(a=>a.map(identity).includes(identity(r.cells[nameColumn]))).length===1)));if(candidates.length){const best=candidates.sort((a,b)=>scoreSheet('',[b],0,kind).filled-scoreSheet('',[a],0,kind).filled)[0];consumed.add(best);count+=scoreSheet('',[best],0,kind).filled;matched++;}}
+  const groups=[...roads.values()],matchedGroups=new Set();
+  const credit=(aliases,candidates)=>{const best=candidates.sort((a,b)=>scoreSheet('',[b],0,kind).filled-scoreSheet('',[a],0,kind).filled)[0];consumed.add(best);matchedGroups.add(aliases);count+=scoreSheet('',[best],0,kind).filled;matched++;};
+  // Reserve exact matches before considering spelling variants.
+  for(const aliases of groups){const candidates=rows.filter(r=>!consumed.has(r)&&(aliases.includes(key(r.cells[nameColumn]))||(aliases.map(identity).includes(identity(r.cells[nameColumn]))&&groups.filter(a=>a.map(identity).includes(identity(r.cells[nameColumn]))).length===1)));if(candidates.length)credit(aliases,candidates);}
+  if(kind===4){
+   const possible=new Map(rows.filter(r=>!consumed.has(r)).map(r=>[r,groups.filter(a=>a.some(n=>nearGeneralName(n,r.cells[nameColumn])))]));
+   for(const aliases of groups.filter(a=>!matchedGroups.has(a))){
+    const candidates=[...possible].filter(([r,g])=>!consumed.has(r)&&g.length===1&&g[0]===aliases).map(([r])=>r);
+    // Multiple differently named candidates need review, not an arbitrary match.
+    if(candidates.length&&new Set(candidates.map(r=>generalTokens(r.cells[nameColumn]).join(' '))).size===1)credit(aliases,candidates);
+   }
+  }
   tabs.push({name:general.name,kind,rows:matched,target:roads.size,filled:count,required:roads.size*fieldsPerRoad,nil:false,maintenanceVersion:kind===3?6:undefined,unmatched:rows.length-consumed.size});
  }
  return {base,tabs,roadCounts:{single:singles.length,segmented:split.length}};
